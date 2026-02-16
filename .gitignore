@@ -1,0 +1,42 @@
+# 敏感信息
+.env
+.env.*
+*.key
+*.pem
+secrets/
+
+# 自动生成的 API/翻译配置（含密钥）
+docs/javascripts/translate-config.js
+docs/javascripts/glm-api-config.js
+docs/javascripts/api-config.js
+docs/javascripts/*.local.js
+
+# Zensical / 构建输出
+site/
+.cache/
+build/
+dist/
+temp/
+*.tmp
+*.bak
+
+# 日志
+*.log
+logs/
+
+# 本机与编辑器
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Python（script.py 等）
+__pycache__/
+.venv/
+venv/
+.pytest_cache/
+.coverage
+
+# Node 依赖（若有本地工具）
+node_modules/

@@ -38,12 +38,12 @@ nav:
   - 主页: index.md
   - 算法竞赛:
     - 数学: 
-      - 筛法加速质因数分解: blog/算法竞赛/数学/筛法加速质因数分解.md
+      - 筛法加速质因数分解: blog/CompetitivePrograming/math/筛法加速质因数分解.md
   - 深度学习:
     - 基础知识:
-      - 极大似然估计: blog/深度学习/基础知识/极大似然估计.md
+      - 极大似然估计: blog/DeepLearning/BasicKnowledge/极大似然估计.md
     - 循环神经网络（RNN）: 
-      - 序列模型: blog/深度学习/RNN/序列模型.md
+      - 序列模型: blog/DeepLearning/RNN/序列模型.md
       
 
 
@@ -54,9 +54,6 @@ hooks:
 
 plugins:
   - search
-  - privacy:
-      links_attr_map:
-        target: _blank
 
 markdown_extensions: #详见https://squidfunk.github.io/mkdocs-material/setup/extensions/python-markdown-extensions/ 和 https://squidfunk.github.io/mkdocs-material/setup/extensions/python-markdown/
   - abbr
@@ -99,5 +96,18 @@ markdown_extensions: #详见https://squidfunk.github.io/mkdocs-material/setup/ex
       custom_checkbox: true
 
 extra_javascript:
-  - javascripts/mathjax.js
-  - https://unpkg.com/mathjax@3/es5/tex-mml-svg.js
+  # katex支持
+  - javascripts/katex.js
+  - https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js
+  - https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/copy-tex.min.js
+  - https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js
+  - https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/mathtex-script-type.min.js
+  - https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/mhchem.min.js
+  - https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/contrib/render-a11y-string.min.js
+
+  
+extra_css:
+  # katex支持
+  - https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css
+
+

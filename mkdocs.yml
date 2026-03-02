@@ -27,6 +27,8 @@ theme:
     - content.code.annotate
     - content.code.select
   language: zh # 一些提示性的文字会变成中文
+  logo: assets/logo.png
+  favicon: assets/logo.png
 
   icon:
     repo: fontawesome/brands/github #右上角图标

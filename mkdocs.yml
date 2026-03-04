@@ -29,7 +29,6 @@ theme:
   language: zh # 一些提示性的文字会变成中文
   logo: assets/logo.png
   favicon: assets/logo.png
-
   icon:
     repo: fontawesome/brands/github #右上角图标
     logo: logo
@@ -48,6 +47,14 @@ nav:
       - Transformer个人理解: blog/DeepLearning/Attention/Transformer个人理解.md
       
 
+# [点击按钮跳转至 GitHub 修改 Markdown 源文件]
+# https://squidfunk.github.io/mkdocs-material/setup/adding-a-git-repository/#code-actions
+edit_uri: edit/main/docs/
+# [top-right corner]
+# [添加 GitHub 仓库]
+# https://squidfunk.github.io/mkdocs-material/setup/adding-a-git-repository/
+repo_url: https://github.com/Meltrysaika/Meltrysaika.github.io
+repo_name: Meltrysaika.github.io
 
 
 hooks:

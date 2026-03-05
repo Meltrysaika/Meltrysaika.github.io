@@ -43,6 +43,7 @@ nav:
       - 极大似然估计: blog/DeepLearning/BasicKnowledge/极大似然估计.md
     - 循环神经网络（RNN）: 
       - 序列模型: blog/DeepLearning/RNN/序列模型.md
+      - RNN的从零实现: blog/DeepLearning/RNN/RNN.ipynb
     - 注意力机制:
       - Transformer个人理解: blog/DeepLearning/Attention/Transformer个人理解.md
       
@@ -63,6 +64,7 @@ hooks:
 
 plugins:
   - search
+  - mkdocs-jupyter
 
 markdown_extensions: #详见https://squidfunk.github.io/mkdocs-material/setup/extensions/python-markdown-extensions/ 和 https://squidfunk.github.io/mkdocs-material/setup/extensions/python-markdown/
   - abbr

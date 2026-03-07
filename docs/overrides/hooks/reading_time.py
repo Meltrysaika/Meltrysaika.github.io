@@ -4,6 +4,7 @@ import time
 from functools import lru_cache
 from collections import OrderedDict
 import hashlib
+import math
 
 # 预编译正则表达式（性能优化版本）
 EXCLUDE_PATTERNS = [
@@ -210,7 +211,9 @@ def calculate_reading_stats(markdown):
     code_lines = count_code_lines(markdown)
 
     # 计算阅读时间（中文：400字/分钟）
-    reading_time = max(1, round(chinese_chars / 400))
+    # reading_time = max(1, round(chinese_chars / 400))
+    effective_chars = chinese_chars + code_lines * 35
+    reading_time = max(1, math.ceil(effective_chars / 350))
 
     return reading_time, chinese_chars, code_lines
 

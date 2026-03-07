@@ -45,6 +45,7 @@ nav:
       - 序列模型: blog/DeepLearning/RNN/序列模型.md
       - RNN的从零实现: blog/DeepLearning/RNN/RNN.ipynb
     - 注意力机制:
+      - Transformer: blog/DeepLearning/Attention/Transformer.md
       - Transformer个人理解: blog/DeepLearning/Attention/Transformer个人理解.md
       
 

@@ -337,3 +337,129 @@ class EncoderLayer(nn.Module):
         return x
 
 ```
+
+## Decoder
+
+Decoder 和 Encoder 相似，但有些不同：
+
+- 包含两个 Multi-Head Attention 层
+- 第一个 Multi-Head Attention 层采用了 Masked 操作
+- 第二个  Multi-Head Attention 层 （交叉注意力），的 $K,V$ 矩阵采用 Encoder 的编码信息矩阵 $C$ 计算，而 $Q$ 使用上一个 Decoder block 的输出计算
+- 最后用一个 softmax 层计算下一个翻译单词的概率
+
+### Masked 操作
+
+因为翻译过程中是循序翻译的，翻译完第 $i$ 个单词，才可以翻译第 $i+1$ 个单词，通过 Masked 操作可以防止翻译第 $i$ 个单词时知道 $i+1$ 个单词之后的信息即“透露答案”。
+
+Masked 操作是通过**修改注意力分数矩阵**实现的
+
+- 计算 $Q,K,V$，和普通的自注意力一样，Decoder 通过输入经过线性变换得到
+
+- 计算注意力分数 $S = \frac{QK^T}{\sqrt{d_k}}$ 
+
+  这个矩阵中 $S_{i,j}$ 在 $j > i $ 时表示位置 $i$ 的查询在关注位置 $j$ 的键，而 $j$ 位于 $i$ 的未来，需要屏蔽。
+
+- 掩码矩阵 $M$ 和 $S$ 形状相同
+
+  $M_{i,j} = 0$ 当 $j \leq i$ ，允许看到当前和之前的位置
+
+  $M_{i,j} = -inf$ 当 $j > i $ ，屏蔽之后的信息
+
+- 修改注意力分数 $S^{masked}_{i,j}$ = S + M$
+
+  对于允许看到的位置 $j \leq i$ ， $S^{masked}_{i,j} = S_{i,j}$，分数不变
+
+  对于不允许看到的位置 $j > i $ ， $S^{masked}_{i,j} = -inf$，分数变为负无穷
+
+- 应用 Softmax， $ A = softmax(S^{masked})$
+
+  softmax 函数对于输入进行指数运算，$exp(-inf) = 0$
+
+  因此对于屏蔽的位置 $A_{i,j} = 0$
+
+- 计算输出 $output = A \times V $
+
+​	屏蔽位置的注意力权重为 0 ，对输出没有贡献
+
+```python
+def attn_mask(len):
+    mask = torch.triu(torch.ones(len, len, dtype=torch.bool), diagonal=1)
+    return mask
+```
+
+### Cross-Attention 交叉注意力
+
+Decoder 中的第二个 Multi-Head Attention 为交叉注意力层
+
+交叉注意力允许在生成目标序列的当前位置时可以有选择地关注编码器输出的整个源序列的表示，这也是 seq2seq 任务的核心机制
+
+交叉注意力的 $Q$ 来自 Decoder 自身，是上一层的输出，代表了解码器当前的状态，是尝试生成目标序列当前位置的信息
+
+$K$ 和 $V$ 来自最后一个 Encoder 层的输出，代表了 Encoder 对整个源序列的完整理解，编码器已经将源序列的信息压缩转换为了丰富的上下文表示。$K$ 用于计算相关性，$V$ 是实际被加权的信息。标准 Transformer 中 $K$ 和 $V$ 来自于同一个张量的线性投影。
+
+### 完整 Decoder 结构
+
+1. 输入：嵌入的目标序列 + 位置编码 （训练时为目标序列右移，预测时为已生成序列）
+
+2. Masked Multi-Head Self-Attention
+
+   输入：嵌入目标序列
+
+   作用：让目标序列每个位置关注其之前的所有位置
+
+   输出：MaskedAttn_Output
+
+3. Add & Norm 1
+
+   res1 = LayerNorm(Embedded_Target + MaskedAttn_Output)
+
+4. Multi-Head Encoder-Decoder Attention (Cross-Attention)
+
+   Q = res1
+
+   K = Encoder_Output V= Encoder_Output
+
+5. Add & Norm 2
+
+   res2 = LayerNorm(res1 + CrossAttn_Output)
+
+6. FFN 
+
+7. Add & Norm 3
+
+8. 输出，传递给下一层解码器或最终 softmax
+
+
+
+```python
+class DecoderLayer(nn.Module):
+    def __init__(self, dim, dim_qk, num_heads=1, dropout=0., pre_norm=False):
+        super(DecoderLayer, self).__init__()
+        self.attn1 = MultiHeadAttention(dim_embed=dim, dim_qk=dim_qk, num_heads=num_heads, dropout=dropout, bias=False)
+        self.attn2 = MultiHeadAttention(dim_embed=dim, dim_qk=dim_qk, num_heads=num_heads, dropout=dropout, bias=False)
+        self.ffn = FeedForward(dim, hidden_dim=dim * 4, dropout=dropout)
+        self.pre_norm = pre_norm
+        self.norm1 = nn.LayerNorm(dim)
+        self.norm2 = nn.LayerNorm(dim)
+        self.norm3 = nn.LayerNorm(dim)
+
+    def forward(self, x: Tensor,enc: Tensor, mask=None) -> Tensor:
+        if (self.pre_norm):
+            res1 = self.norm1(x)
+            x = x + self.attn1(res1, res1, res1, mask=mask)
+            res2 = self.norm2(x)
+            x = x + self.attn2(res2, enc, enc, mask=mask)
+            res3 = self.norm3(x)
+            x = x + self.ffn(res3)
+        else:
+            x = self.attn1(x, x, x, mask) + x
+            x = self.norm1(x)
+            x = self.attn2(x, enc, enc, mask) + x
+            x = self.norm2(x)
+            x = self.ffn(x) + x
+            x = self.norm3(x)
+
+        return x
+
+```
+

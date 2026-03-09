@@ -262,7 +262,7 @@ Add 之后数值会每层叠加更新，所以需要做一次归一化让每个 
   $$
   LN(y)_k = \gamma_k \frac{y_k - \mu}{\sqrt{\sigma^2 + \epsilon} }+ \beta
   $$
-  其中 $\epsilon$ 是一个很小的常熟，防止除以零
+  其中 $\epsilon$ 是一个很小的常数，防止除以零
 
   缩放参数 $\gamma$ 和 平移参数 $\beta$ 是可学习的，让模型不被限死在标准正态
 

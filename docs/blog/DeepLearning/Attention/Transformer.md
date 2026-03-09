@@ -22,7 +22,7 @@
 ```python
 self.embedding = nn.Embedding(vocabulary, dim)
 ```
-这行代码将离散的 ID 索引转换为连续的向量表示，输入形状为 $(sequence_length)$ 的整数张量，返回形状为 $(sequence_length, dim)$ 的浮点张量，其中 $dim$ 是特征维度
+这行代码将离散的 ID 索引转换为连续的向量表示，输入形状为 $(sequence\_length)$ 的整数张量，返回形状为 $(sequence\_length)$ 的浮点张量，其中 $dim$ 是特征维度
 
 | 参数       | 含义     | 示例值 | 说明                              |
 | ---------- | -------- | ------ | --------------------------------- |
@@ -45,7 +45,7 @@ self.embedding = nn.Embedding(vocabulary, dim)
 
 - 早期层效果：帮助模型建立位置感知
 - 后期层效果：位置信息被融合到语义之中
--
+
 ### 正余弦位置编码
 计算公式：
 
@@ -63,6 +63,7 @@ $$
 其中 10000 的经验性的参数，用于频率岁嵌入维度由高到低平滑递减，保证常见序列长度范围内都能有效区分不同位置冰捕捉不同尺度位置关系。
 
 实现上计算 $10000^{\frac{2i}{d}}$ 可能出现精度问题，需要转化为指数计算
+
 ## 自注意力和多头注意力
 
 Encoder 包含一个 Multi-Head Attention
@@ -75,6 +76,7 @@ Decoder 包含两个 Multi-Head Attention，其中有一个用到了 Mask
 首先我们有输入矩阵 $X_{n\times d}$，其中 $n$ 为序列长度，$d$ 为特征维度。
 
 我们通过可学习的权重矩阵生成 Q（查询），K（键值），V（值）
+
 $$
 \begin{cases}
 Q = XW^Q \\
@@ -82,10 +84,13 @@ K = XW^K \\
 V = XW^V
 \end{cases}
 $$
+
 然后计算自注意力的输出
+
 $$
 Attention(Q,K,V) = softmax(\frac{QK^T}{\sqrt{d_K}}) V
 $$
+
 这个公式可视为四步
 
 1. 相似度计算：$QK^T$ 计算所有查询-键对之间的点击相似度，得到大小为 $(n,n)$ 的矩阵，表示单词之间的 attention 强度，这里的**注意力评分函数**是点积，更一般地可写为 $Attention(Q,K,V) = \sum \alpha(Q,K) V$
@@ -98,13 +103,17 @@ $$
 ### 多头注意力
 
 多头注意力可增强模型的表达能力
+
 $$
 MultiHead(Q,K,V) =[head_1;head_2;...;head_h]W^O
 $$
+
 其中每个注意力头：
+
 $$
 head_1 = Attention(QW_i^Q,KW_i^K,VW_i^V)
 $$
+
 因为 $h$ 份注意力互不依赖，没有先后关系，所以适合并行同时计算
 
 其中输出投影矩阵 $W^O \in \mathbb{R} ^ {(n\times h) \times n}$ ，将并行计算得到的 $h$ 个注意力头的输出按特征维度连接后，由可学习的先行层整合信息映射为最终输出
@@ -195,6 +204,7 @@ Decoder 包含两个 Multi-Head Attention，其中有一个用到了 Mask
 首先我们有输入矩阵 $X_{n\times d}$，其中 $n$ 为序列长度，$d$ 为特征维度。
 
 我们通过可学习的权重矩阵生成 Q（查询），K（键值），V（值）
+
 $$
 \begin{cases}
 Q = XW^Q \\
@@ -202,10 +212,13 @@ K = XW^K \\
 V = XW^V
 \end{cases}
 $$
+
 然后计算自注意力的输出
+
 $$
 Attention(Q,K,V) = softmax(\frac{QK^T}{\sqrt{d_K}}) V
 $$
+
 这个公式可视为四步
 
 1. 相似度计算：$QK^T$ 计算所有查询-键对之间的点击相似度，得到大小为 $(n,n)$ 的矩阵，表示单词之间的 attention 强度，这里的**注意力评分函数**是点积，更一般地可写为 $Attention(Q,K,V) = \sum \alpha(Q,K) V$
@@ -218,13 +231,17 @@ $$
 ### 多头注意力
 
 多头注意力可增强模型的表达能力
+
 $$
 MultiHead(Q,K,V) =[head_1;head_2;...;head_h]W^O
 $$
+
 其中每个注意力头：
+
 $$
 head_1 = Attention(Q_iW_i^Q,K_iW_i^K,V_iW_i^V)
 $$
+
 因为 $h$ 份注意力互不依赖，没有先后关系，所以适合并行同时计算
 
 其中输出投影矩阵 $W^O \in \mathbb{R} ^ {(n\times h) \times n}$ ，将并行计算得到的 $h$ 个注意力头的输出按特征维度连接后，由可学习的先行层整合信息映射为最终输出
@@ -250,7 +267,7 @@ $$
 - 信息不容易丢，旧信息能完整传递
 - 大幅降低梯度消失的风险
 
-### Norm: LayerNorm 层归一化
+#### Norm: LayerNorm 层归一化
 
 Add 之后数值会每层叠加更新，所以需要做一次归一化让每个 token 向量的尺度更可控
 
@@ -262,7 +279,8 @@ Add 之后数值会每层叠加更新，所以需要做一次归一化让每个 
   $$
   LN(y)_k = \gamma_k \frac{y_k - \mu}{\sqrt{\sigma^2 + \epsilon} }+ \beta
   $$
-  其中 $\epsilon$ 是一个很小的常熟，防止除以零
+  
+  其中 $\epsilon$ 是一个很小的常数，防止除以零
 
   缩放参数 $\gamma$ 和 平移参数 $\beta$ 是可学习的，让模型不被限死在标准正态
 
@@ -271,9 +289,11 @@ Add 之后数值会每层叠加更新，所以需要做一次归一化让每个 
 ### Feed Forward Network （FFN）层
 
 FFN 层的结构非常简单，由两个全连接层和一个非线性激活函数组成
+
 $$
 FFN(x) = \sigma(xW_1+b_1 )W_2+b_2
 $$
+
 核心作用是引入非线性变换能力
 
 FFN 对每个 token 单独并行操作
@@ -365,7 +385,7 @@ Masked 操作是通过**修改注意力分数矩阵**实现的
 
   $M_{i,j} = -inf$ 当 $j > i $ ，屏蔽之后的信息
 
-- 修改注意力分数 $S^{masked}_{i,j}$ = S + M$
+- 修改注意力分数 $S^{masked}_{i,j} = S + M$
 
   对于允许看到的位置 $j \leq i$ ， $S^{masked}_{i,j} = S_{i,j}$，分数不变
 

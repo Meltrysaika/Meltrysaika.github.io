@@ -46,7 +46,7 @@ nav:
       - RNN的从零实现: blog/DeepLearning/RNN/RNN.ipynb
     - 注意力机制:
       - Transformer: blog/DeepLearning/Attention/Transformer.md
-      - Transformer个人理解: blog/DeepLearning/Attention/Transformer个人理解.md
+      - Transformer理解: blog/DeepLearning/Attention/Transformer理解.md
       
 
 # [点击按钮跳转至 GitHub 修改 Markdown 源文件]
@@ -66,6 +66,7 @@ hooks:
 plugins:
   - search
   - mkdocs-jupyter
+  - open-in-new-tab
 
 markdown_extensions: #详见https://squidfunk.github.io/mkdocs-material/setup/extensions/python-markdown-extensions/ 和 https://squidfunk.github.io/mkdocs-material/setup/extensions/python-markdown/
   - abbr

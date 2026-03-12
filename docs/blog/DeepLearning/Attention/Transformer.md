@@ -64,6 +64,35 @@ $$
 
 实现上计算 $10000^{\frac{2i}{d}}$ 可能出现精度问题，需要转化为指数计算
 
+```python
+import torch
+from typing import Optional
+from torch import nn
+from torch import Tensor
+
+class PositionalEncoding(nn.Module):
+    def __init__(self, dim_embed:int, max_len:int, freq = 10000.0):
+        super(PositionalEncoding, self).__init__()
+        self.dim_embed = dim_embed
+        self.max_len = max_len
+        self.pe = torch.zeros(max_len, dim_embed)
+
+        pos = torch.arange(0, dim_embed).float().unsqueeze(1)
+        # pos: [max_len, 1]
+        div = torch.pow(freq, torch.arange(0, dim_embed, 2).float() / dim_embed)
+        # div: [ceil(dim_embed / 2)]
+        self.pe[:, 0::2] = torch.sin(pos / div)
+        self.pe[:, 1::2] = torch.cos(pos / (div if dim_embed % 2 == 0 else div[:-1]))
+
+    def forward(self, x: Tensor, seq_len=None) -> Tensor:
+        # x: [batch_size, len, dim_embed]
+        if seq_len is None:
+            seq_len = x.size(-2)
+        return x + self.pe[:seq_len, :]
+```
+
+
+
 ## 自注意力和多头注意力
 
 Encoder 包含一个 Multi-Head Attention
@@ -119,12 +148,6 @@ $$
 其中输出投影矩阵 $W^O \in \mathbb{R} ^ {(n\times h) \times n}$ ，将并行计算得到的 $h$ 个注意力头的输出按特征维度连接后，由可学习的先行层整合信息映射为最终输出
 
 ```python
-
-import torch
-from typing import Optional
-from torch import nn
-from torch import Tensor
-
 class MultiHeadAttention(nn.Module):
     def __init__(self, dim_embed:int, num_heads:int, dropout=0.1, bias=False,
                  dim_k: Optional[int] = None, dim_v: Optional[int] = None):
@@ -145,6 +168,7 @@ class MultiHeadAttention(nn.Module):
         self.o_linear = nn.Linear(self.dim_embed, self.dim_embed, bias=bias)
 
         self.dropout_p = float(dropout)
+        self.attn_score = torch.nn.functional.scaled_dot_product_attention
 
     def forward(self, q: Tensor, k: Tensor, v: Tensor, valid_len: Tensor) -> Tensor:
         # q: [batch_size, dim_q, dim_embed]
@@ -164,14 +188,9 @@ class MultiHeadAttention(nn.Module):
         # [batch_size, ] -> [batch_size * num_heads, ]
         valid_len = torch.repeat_interleave(valid_len, repeats=self.num_heads, dim=0)
 
-        attn_out = torch.nn.functional.scaled_dot_product_attention(
-            q_heads, k_heads, v_heads,
-            attn_mask=valid_len,
-            dropout_p = self.dropout_p if self.training else 0.0,
-            is_causal= False
-        )
+        attn_output = self.attn_score(k_heads, v_heads, q_heads, valid_len)
 
-        output_concat = self.__transpose_output(attn_out)
+        output_concat = self.__transpose_output(attn_output)
 
         return self.o_linear(output_concat)
 
@@ -189,6 +208,8 @@ class MultiHeadAttention(nn.Module):
         return (x.reshape(batch_size, self.num_heads, dim_qkv, self.dim_head) # [batch_size, num_heads, dim_qkv, dim_head]
                 .permute(0, 2, 1, 3) # [batch_size, num_heads, dim_qkv, dim_head]
                 .reshape(batch_size, dim_qkv, self.dim_embed)) # [batch_size, qkv_num, dim_embed]
+
+
 
 ```
 
@@ -313,7 +334,6 @@ Feed Forward Network: ffn_output = FFN(y)
 Add & Norm 2: output = LayerNorm(y + ffn_output)
 
 ```python
-
 import torch
 import torch.nn as nn
 
@@ -407,6 +427,23 @@ def attn_mask(len):
     return mask
 ```
 
+还有一种重要的掩码：**填充掩码（Padding Mask）**
+在批处理中需要填充不同长度的序列到相同长度，填充的部分不应参与注意力计算
+实现：
+- 构建一个掩码向量/矩阵，标识哪些位置是真实 token (1)，哪些是填充 token(0)
+- 计算注意力分数后，应用 softmax 前对于填充的位置，将其注意力分数设置为无穷小 (-1e9)
+- 应用 softmax 时被屏蔽位置的权重变为 0
+
+```python
+def padding_mask(pad_q: Tensor, pad_k: Tensor):
+    # pad_q: [batch_size, len_q]
+    # pad_k: [batch_size, len_k]
+    mask = pad_q.bool().unsqueeze(2) * pad_k.bool().unsqueeze(1)
+    mask = ~mask
+    # mask: [batch_size, len_q, len_k]
+    return mask
+```
+
 ### Cross-Attention 交叉注意力
 
 Decoder 中的第二个 Multi-Head Attention 为交叉注意力层
@@ -482,4 +519,253 @@ class DecoderLayer(nn.Module):
         return x
 
 ```
+
+## 完整 Transformer 实现
+
+```python
+import torch
+from torch import nn
+from torch import Tensor
+from typing import Optional
+
+class PositionalEncoding(nn.Module):
+    def __init__(self, dim_embed:int, max_len:int = None, freq = 10000.0):
+        super(PositionalEncoding, self).__init__()
+        self.dim_embed = dim_embed
+        self.max_len = max_len if max_len is not None else dim_embed
+        self.pe = torch.zeros(self.max_len, dim_embed)
+
+        pos = torch.arange(0, self.max_len).float().unsqueeze(1)
+        # pos: [max_len, 1]
+        div = torch.pow(freq, torch.arange(0, dim_embed, 2).float() / dim_embed)
+        # div: [ceil(dim_embed / 2)]
+        self.pe[:, 0::2] = torch.sin(pos / div)
+        self.pe[:, 1::2] = torch.cos(pos / (div if dim_embed % 2 == 0 else div[:-1]))
+
+    def forward(self, x: Tensor, seq_len=None) -> Tensor:
+        # x: [batch_size, len, dim_embed]
+        if seq_len is None:
+            seq_len = x.size(-2)
+        return x + self.pe[:seq_len, :]
+
+class MultiHeadAttention(nn.Module):
+    def __init__(self, dim_embed:int, num_heads:int, dropout=0.1, bias=False,
+                 dim_k: Optional[int] = None, dim_v: Optional[int] = None):
+        super().__init__()
+
+        if dim_embed % num_heads != 0: raise ValueError("embed_dim must be divisible by num_heads")
+
+        self.dim_embed = dim_embed
+        self.num_heads = num_heads
+        self.dim_head = dim_embed // num_heads
+        self.dim_k = dim_k if dim_k is not None else dim_embed
+        self.dim_v = dim_v if dim_v is not None else dim_embed
+
+        # 线性投影层
+        self.q_linear = nn.Linear(self.dim_embed, self.dim_embed, bias=bias)
+        self.k_linear = nn.Linear(self.dim_k, self.dim_embed, bias=bias)
+        self.v_linear = nn.Linear(self.dim_v, self.dim_embed, bias=bias)
+        self.o_linear = nn.Linear(self.dim_embed, self.dim_embed, bias=bias)
+
+        self.dropout_p = float(dropout)
+
+    def forward(self, q: Tensor, k: Tensor, v: Tensor, mask: Optional[Tensor]  =None) -> Tensor:
+        # q: [batch_size, dim_q, dim_embed]
+        # k: [batch_size, dim_k, dim_embed]
+        # v: [batch_size, dim_v, dim_embed]
+        # valid_len: 有效长度 [batch_size, ] or [batch_size, dim_q]
+
+        # 线性投影
+        q_proj = self.q_linear(q)
+        k_proj = self.k_linear(k)
+        v_proj = self.v_linear(v)
+
+        q_heads = self.__transpose_qkv(q_proj)
+        k_heads = self.__transpose_qkv(k_proj)
+        v_heads = self.__transpose_qkv(v_proj)
+
+        if mask is not None:
+            if mask.dim() == 3:
+                mask = mask.repeat_interleave(self.num_heads, dim=0)
+
+        # [batch_size, ] -> [batch_size * num_heads, ]
+        attn_output = torch.nn.functional.scaled_dot_product_attention(
+            q_heads, k_heads, v_heads, attn_mask=mask,
+            dropout_p=self.dropout_p if self.training else 0.0,
+        )
+
+        output_concat = self.__transpose_output(attn_output)
+
+        return self.o_linear(output_concat)
+
+    def __transpose_qkv(self, x: Tensor) -> Tensor: # 可视作按特征通道分组
+        # x: [B, N, D] -> (B*H, N, dim_head)
+        batch_size, dim_qkv, _ = x.shape
+        return (x.reshape(batch_size, dim_qkv, self.num_heads, self.dim_head) # [batch_size, dim_qkv, num_heads, dim_head]
+                .permute(0, 2, 1, 3) # [batch_size, num_heads, dim_qkv, dim_head]
+                .reshape(-1, dim_qkv, self.dim_head)) # [batch_size * num_heads, qkv_num, dim_head]
+
+    def __transpose_output(self, x: Tensor) -> Tensor:
+        # x: [B*H, N, dim_head] -> (B*H, N, D)
+        batch_times_heads, dim_qkv, _ = x.shape
+        batch_size = batch_times_heads // self.num_heads
+        return (x.reshape(batch_size, self.num_heads, dim_qkv, self.dim_head) # [batch_size, num_heads, dim_qkv, dim_head]
+                .permute(0, 2, 1, 3) # [batch_size, num_heads, dim_qkv, dim_head]
+                .reshape(batch_size, dim_qkv, self.dim_embed)) # [batch_size, qkv_num, dim_embed]
+
+
+class FeedForward(nn.Module):
+    def __init__(self, dim, hidden_dim, dropout=0., activation=nn.ReLU()):
+        super(FeedForward, self).__init__()
+        self.dim = dim
+        self.hidden_dim = hidden_dim
+        self.activation = activation
+        self.dropout = nn.Dropout(p=dropout)
+        self.fc1 = nn.Linear(dim, hidden_dim)
+        self.fc2 = nn.Linear(hidden_dim, dim)
+
+    def forward(self, x: Tensor) -> Tensor:
+        x = self.activation(self.fc1(x))
+        x = self.dropout(x)
+        x = self.fc2(x)
+        return x
+
+class EncoderLayer(nn.Module):
+    def __init__(self, dim, dim_qk, num_heads=1, dropout=0., pre_norm=False, activation=nn.ReLU()):
+        super(EncoderLayer, self).__init__()
+        self.attn = MultiHeadAttention(dim, dim_k= dim_qk, num_heads=num_heads, dropout=dropout, bias=False)
+        self.ffn = FeedForward(dim, hidden_dim=dim * 4, dropout=dropout, activation=activation)
+        self.pre_norm = pre_norm
+        self.norm1 = nn.LayerNorm(dim)
+        self.norm2 = nn.LayerNorm(dim)
+
+    def forward(self, x: Tensor, mask=None) -> Tensor:
+        if self.pre_norm:
+            res1 = self.norm1(x)
+            x = x + self.attn(res1, res1, res1, mask=mask)
+            res2 = self.norm2(x)
+            x = x + self.ffn(res2)
+        else:
+            x = x + self.attn(x, x, x, mask=mask)
+            x = self.norm1(x)
+            x = x + self.ffn(x)
+            x = self.norm2(x)
+
+        return x
+
+def attn_mask(len):
+    mask = torch.triu(torch.ones(len, len, dtype=torch.bool), diagonal=1)
+    return mask
+
+def padding_mask(pad_q: Tensor, pad_k: Tensor):
+    # pad_q: [batch_size, len_q]
+    # pad_k: [batch_size, len_k]
+    mask = pad_q.bool().unsqueeze(2) * pad_k.bool().unsqueeze(1)
+    mask = ~mask
+    # mask: [batch_size, len_q, len_k]
+    return mask
+
+
+class Encoder(nn.Module):
+    def __init__(self, dim, dim_qk=None, num_heads=1, num_layers=1, dropout=0., pre_norm=False):
+        super(Encoder, self).__init__()
+        self.layers = nn.ModuleList([EncoderLayer(dim, dim_qk, num_heads, dropout, pre_norm) for _ in range(num_layers)])
+
+    def forward(self, x, mask=None):
+        for layer in self.layers:
+            x = layer(x, mask)
+        return x
+
+class DecoderLayer(nn.Module):
+    def __init__(self, dim, dim_qk, num_heads=1, dropout=0., pre_norm=False):
+        super(DecoderLayer, self).__init__()
+        self.attn1 = MultiHeadAttention(dim_embed=dim, dim_k=dim_qk, num_heads=num_heads, dropout=dropout, bias=False)
+        self.attn2 = MultiHeadAttention(dim_embed=dim, dim_k=dim_qk, num_heads=num_heads, dropout=dropout, bias=False)
+        self.ffn = FeedForward(dim, hidden_dim=dim * 4, dropout=dropout)
+        self.pre_norm = pre_norm
+        self.norm1 = nn.LayerNorm(dim)
+        self.norm2 = nn.LayerNorm(dim)
+        self.norm3 = nn.LayerNorm(dim)
+
+    def forward(self, x: Tensor,enc: Tensor, self_mask= None, pad_mask= None) -> Tensor:
+        if (self.pre_norm):
+            res1 = self.norm1(x)
+            x = x + self.attn1(res1, res1, res1, mask=self_mask)
+            res2 = self.norm2(x)
+            x = x + self.attn2(res2, enc, enc, mask=pad_mask)
+            res3 = self.norm3(x)
+            x = x + self.ffn(res3)
+        else:
+            x = self.attn1(x, x, x, self_mask) + x
+            x = self.norm1(x)
+            x = self.attn2(x, enc, enc, pad_mask) + x
+            x = self.norm2(x)
+            x = self.ffn(x) + x
+            x = self.norm3(x)
+
+        return x
+
+class Decoder(nn.Module):
+    def __init__(self, dim, dim_qk=None, num_heads=1, num_layers=1, dropout=0., pre_norm=False):
+        super(Decoder, self).__init__()
+        self.layers = nn.ModuleList([DecoderLayer(dim, dim_qk, num_heads, dropout, pre_norm) for _ in range(num_layers)])
+
+    def forward(self, x, enc, self_mask=None, pad_mask = None) -> Tensor:
+        for layer in self.layers:
+            x = layer(x, enc, self_mask, pad_mask)
+        return x
+
+class Transformer(nn.Module):
+    def __init__(self, vocabulary:int ,dim, num_heads=1, num_layers=1, dropout=0., pre_norm=False):
+        super(Transformer, self).__init__()
+        self.vocabulary = vocabulary # 词表大小
+        self.dim = dim
+        self.num_heads = num_heads
+        self.num_layers = num_layers
+        self.dropout = dropout
+        self.pre_norm = pre_norm
+
+        self.embedding = nn.Embedding(num_embeddings=self.vocabulary, embedding_dim=dim)
+        self.pos_enc = PositionalEncoding(dim)
+        self.encoder = Encoder(dim, dim, num_heads, num_layers, dropout, pre_norm)
+        self.decoder = Decoder(dim, dim, num_heads, num_layers, dropout, pre_norm)
+        self.linear = nn.Linear(dim, vocabulary)
+
+    def forward(self, src, tgt, src_mask=None, tgt_mask=None, pad_mask=None):
+        src = self.embedding(src)
+        src = self.pos_enc(src)
+        src = self.encoder(src, src_mask)
+
+        tgt = self.embedding(tgt)
+        tgt = self.pos_enc(tgt)
+        tgt = self.decoder(tgt, src, tgt_mask, pad_mask)
+
+        output = self.linear(tgt)
+        return output
+
+    def get_mask(self, tgt, src_pad= None):
+        if src_pad is not None:
+            src_mask = padding_mask(src_pad, src_pad)
+        else:
+            src_mask = None
+        tgt_mask = attn_mask(tgt.size(1))
+        if src_pad is not None:
+            pad_mask = padding_mask(torch.ones_like(tgt), src_pad)
+        else:
+            pad_mask = None
+        # src_mask [batch_size, len_src, len_src]
+        # tgt_mask [len_tgt, len_tgt]
+        # pad_mask [batch_size, len_tgt, len_src]
+        return src_mask, tgt_mask, pad_mask
+
+if __name__ == '__main__':
+    model = Transformer(dim=512, vocabulary=10000, num_heads=8, num_layers=6, dropout=0.1, pre_norm=True)
+    src = torch.randint(0, 10000, (2, 10))  # torch.Size([2, 10])
+    tgt = torch.randint(0, 10000, (2, 8))   # torch.Size([2, 8])
+    src_pad = torch.randint(0, 2, (2, 10))  # torch.Size([2, 10])
+    src_mask, tgt_mask, pad_mask = model.get_mask(tgt, src_pad)
+    model(src, tgt, src_mask, tgt_mask, pad_mask)
+```
+
+
 

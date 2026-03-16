@@ -47,6 +47,9 @@ nav:
     - 注意力机制:
       - Transformer: blog/DeepLearning/Attention/Transformer.md
       - Transformer理解: blog/DeepLearning/Attention/Transformer理解.md
+  - Academic:
+    - 读论文:
+      - CauseRec: blog/Academic/ReadingPaper/CauseRec.md
       
 
 # [点击按钮跳转至 GitHub 修改 Markdown 源文件]

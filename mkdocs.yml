@@ -47,6 +47,8 @@ nav:
     - 注意力机制:
       - Transformer: blog/DeepLearning/Attention/Transformer.md
       - Transformer理解: blog/DeepLearning/Attention/Transformer理解.md
+    - LLM:
+      - 如何训练LLM: blog/DeepLearning/LLM/TrainingLLM.md
   - Academic:
     - 读论文:
       - CauseRec: blog/Academic/ReadingPaper/CauseRec.md

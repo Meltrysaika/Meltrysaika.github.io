@@ -6,7 +6,7 @@
 
 我们只考虑最简单的形式，输入一个中文句子，翻译输出一个英文句子
 
-![image.png](img/简单架构.png)
+[![简单架构.png](https://i.postimg.cc/jjCGvnPS/简单架构.png)](https://postimg.cc/sBd6gXTk)
 
 第一步：提取输入句子每一个单词的表示向量 $X$，$X$ 由单词本身的 Embedding 和单词位置的 Embedding 相加都得到。
 
@@ -281,7 +281,7 @@ $$
 
 操作：将子层（自注意力层或FFN）的**输入**直接加到该子层的**输出**上
 
-![img](img/残差连接.png)
+[![残差连接.png](https://i.postimg.cc/vHtFmsGR/残差连接.png)](https://postimg.cc/bsrF64GL)
 
 好处：
 

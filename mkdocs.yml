@@ -51,7 +51,11 @@ nav:
       - 如何训练LLM: blog/DeepLearning/LLM/TrainingLLM.md
   - Academic:
     - 读论文:
-      - CauseRec: blog/Academic/ReadingPaper/CauseRec.md
+      - 序列推荐:
+        - CauseRec: blog/Academic/ReadingPaper/CauseRec.md
+      - CV:
+        - 变化检测:
+          - FC-EF: blog/Academic/ReadingPaper/Fully Convolutional Siamese Networks for CD.md
       
 
 # [点击按钮跳转至 GitHub 修改 Markdown 源文件]

@@ -1,3 +1,7 @@
+原文 
+
+[Fully Convolutional Siamese Networks for Change Detection | IEEE Conference Publication | IEEE Xplore](https://ieeexplore.ieee.org/abstract/document/8451652)
+
 ## 背景
 
 拟解决的问题：在变化检测 （Change Detection） 任务中设计一种既准又快、不依赖预训练的深度学习方法，用来比较同一区域不同时刻的两张遥感图像，判断每个像素是否发生了变化。

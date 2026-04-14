@@ -56,6 +56,7 @@ nav:
       - CV:
         - 变化检测:
           - FC-EF: blog/Academic/ReadingPaper/Fully Convolutional Siamese Networks for CD.md
+          - BIT: blog/Academic/ReadingPaper/CD_Transformer.md
       
 
 # [点击按钮跳转至 GitHub 修改 Markdown 源文件]
